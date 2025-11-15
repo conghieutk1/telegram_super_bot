@@ -1,0 +1,33 @@
+{
+    "schedule": {
+        "gold_fx_interval_min": 60,
+        "weather_interval_min": 60,
+        "news_interval_min": 120,
+        "loop_sleep_seconds": 30
+    },
+    "gold_fx": {
+        "enabled": true,
+        "pnj_gold_api_url": "https://edge-api.pnj.io/ecom-frontend/v1/get-gold-price?zone=11",
+        "gasoline_api_url": "https://www.pvoil.com.vn/tin-gia-xang-dau",
+        "exchangerate_api_url": "https://api.exchangerate.host/live",
+        "currency_pair": "USD/VND"
+    },
+    "weather": {
+        "enabled": true,
+        "location_name": "Hà Nội",
+        "lat": 21.0278,
+        "lon": 105.8342,
+        "api_base": "https://api.openweathermap.org/data/2.5",
+        "units": "metric",
+        "lang": "vi",
+        "rain_alert_mm": 5.0
+    },
+    "news": {
+        "enabled": true,
+        "api_base": "https://newsapi.org/v2",
+        "country": "vn",
+        "category": "general",
+        "page_size": 5,
+        "only_new": true
+    }
+}
