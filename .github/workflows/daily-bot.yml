@@ -2,7 +2,7 @@ name: Daily Telegram Notify
 
 on:
     schedule:
-        - cron: '10 10 * * *'
+        - cron: '15 40 * * *'
     workflow_dispatch: {}
 
 jobs:
@@ -43,4 +43,5 @@ jobs:
 
             - name: Run bot
               run: |
+                  echo "OPENWEATHER_API_KEY=$OPENWEATHER_API_KEY"
                   python src/main.py
