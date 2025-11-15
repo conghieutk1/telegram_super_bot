@@ -40,8 +40,9 @@ jobs:
                     "news_api_key": "${NEWS_API_KEY}"
                   }
                   EOF
+                  echo "OPENWEATHER_API_KEY=$OPENWEATHER_API_KEY"
+                  cat secrets.json
 
             - name: Run bot
               run: |
-                  echo "OPENWEATHER_API_KEY=$OPENWEATHER_API_KEY"
                   python src/main.py
