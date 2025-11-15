@@ -41,11 +41,11 @@ def main() -> None:
     weather_service = WeatherService(config.get("weather", {}), secrets)
     news_service = NewsService(config.get("news", {}), secrets)
 
-    schedule_cfg = config.get("schedule", {})
-    gold_fx_interval = int(schedule_cfg.get("gold_fx_interval_min", 60))
-    weather_interval = int(schedule_cfg.get("weather_interval_min", 60))
-    news_interval = int(schedule_cfg.get("news_interval_min", 120))
-    loop_sleep_seconds = int(schedule_cfg.get("loop_sleep_seconds", 30))
+    # schedule_cfg = config.get("schedule", {})
+    # gold_fx_interval = int(schedule_cfg.get("gold_fx_interval_min", 60))
+    # weather_interval = int(schedule_cfg.get("weather_interval_min", 60))
+    # news_interval = int(schedule_cfg.get("news_interval_min", 120))
+    # loop_sleep_seconds = int(schedule_cfg.get("loop_sleep_seconds", 30))
 
     logger.info("Telegram Super Bot started. Chat ID: %s", chat_id)
 
