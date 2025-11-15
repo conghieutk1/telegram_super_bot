@@ -28,16 +28,20 @@ class TelegramClient:
         parse_mode: Optional[str] = None,
     ) -> None:
         """
-        Gửi 1 message:
-        - Mặc định dùng parse_mode = default_parse_mode (Markdown / HTML / None)
-        - Nếu Telegram báo lỗi parse (Can't parse entities) thì retry lại không dùng parse_mode.
+        Gửi message:
+        - Mặc định dùng Markdown (hoặc parse_mode bạn truyền vào).
+        - Nếu Telegram kêu lỗi "Can't parse entities":
+          + Lần 2: bỏ hết dấu backtick ` rồi gửi lại vẫn với Markdown.
+          + Lần 3 (cuối): gửi plain text (không parse_mode).
         """
         if not text:
             return
 
-        # Ưu tiên parse_mode truyền vào, nếu không thì dùng default
-        effective_parse_mode = parse_mode if parse_mode is not None else self.default_parse_mode
+        effective_parse_mode = (
+            parse_mode if parse_mode is not None else self.default_parse_mode
+        )
 
+        # Try 1: gửi nguyên bản với parse_mode
         try:
             self.bot.send_message(
                 chat_id=self.chat_id,
@@ -50,32 +54,53 @@ class TelegramClient:
                 self.chat_id,
                 effective_parse_mode,
             )
+            return
         except TelegramError as exc:
             msg = str(exc)
-            # Nếu lỗi liên quan đến parse entities, retry không dùng parse_mode
-            if "Can't parse entities" in msg or "can't parse entities" in msg:
-                self.logger.warning(
-                    "Failed to send message with parse_mode=%s: %s. "
-                    "Retrying without parse_mode...",
-                    effective_parse_mode,
-                    msg,
-                )
-                try:
-                    self.bot.send_message(
-                        chat_id=self.chat_id,
-                        text=text,
-                        parse_mode=None,
-                        disable_notification=disable_notification,
-                    )
-                    self.logger.info(
-                        "Sent message to chat_id=%s without parse_mode after retry",
-                        self.chat_id,
-                    )
-                    return
-                except TelegramError as exc2:
-                    self.logger.error(
-                        "Failed to send message even without parse_mode: %s",
-                        exc2,
-                    )
-            else:
+            self.logger.warning(
+                "Failed to send message with parse_mode=%s: %s",
+                effective_parse_mode,
+                msg,
+            )
+
+            # Nếu không phải lỗi parse entities thì khỏi cố nữa
+            if "can't parse entities" not in msg.lower():
                 self.logger.error("Failed to send message: %s", exc)
+                return
+
+        # Try 2: dọn Markdown (bỏ backtick) rồi vẫn gửi lại với Markdown
+        cleaned_text = text.replace("`", "")
+        try:
+            self.bot.send_message(
+                chat_id=self.chat_id,
+                text=cleaned_text,
+                parse_mode=effective_parse_mode,
+                disable_notification=disable_notification,
+            )
+            self.logger.info(
+                "Sent message to chat_id=%s after cleaning markdown (parse_mode=%s)",
+                self.chat_id,
+                effective_parse_mode,
+            )
+            return
+        except TelegramError as exc2:
+            self.logger.warning(
+                "Still failed to send message after cleaning markdown: %s", exc2
+            )
+
+        # Try 3: gửi plain text không parse_mode (last resort)
+        try:
+            self.bot.send_message(
+                chat_id=self.chat_id,
+                text=cleaned_text,
+                parse_mode=None,
+                disable_notification=disable_notification,
+            )
+            self.logger.info(
+                "Sent message to chat_id=%s without parse_mode as fallback",
+                self.chat_id,
+            )
+        except TelegramError as exc3:
+            self.logger.error(
+                "Failed to send message even without parse_mode: %s", exc3
+            )
