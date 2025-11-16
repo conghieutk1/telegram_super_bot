@@ -20,7 +20,8 @@
         "api_base": "https://api.openweathermap.org/data/2.5",
         "units": "metric",
         "lang": "vi",
-        "rain_alert_mm": 5.0
+        "rain_alert_mm": 5.0,
+        "forecast_days": 3
     },
     "news": {
         "enabled": true,
