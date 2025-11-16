@@ -25,6 +25,7 @@
     "news": {
         "enabled": true,
         "api_base": "https://newsapi.org/v2",
+        "sources": "bbc-news",
         "country": "vn",
         "category": "general",
         "page_size": 5,

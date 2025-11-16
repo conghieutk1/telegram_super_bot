@@ -7,7 +7,7 @@ import requests
 from typing import Dict
 import math
 from datetime import datetime, timezone, timedelta
-
+from html import escape as html_escape  # ⭐ để escape text động
 
 
 class GoldFxService:
@@ -41,7 +41,7 @@ class GoldFxService:
         self.logger.warning("Cannot parse price from %s (data keys: %s)", url, list(data.keys()))
         return None
 
-     # -------------------------------------------------------------
+    # -------------------------------------------------------------
     # ⭐ PNJ REAL GOLD PRICE API
     # -------------------------------------------------------------
     def fetch_pnj_gold(self) -> Optional[list[tuple[str, int, int]]]:
@@ -105,12 +105,9 @@ class GoldFxService:
         url = self.config.get("gasoline_api_url")
         if not url:
             return None
-        
+
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
-        # html = http_get_text(url)
-        # if not html:
-        #     return None
 
         soup = BeautifulSoup(resp.text, "lxml")
 
@@ -168,18 +165,18 @@ class GoldFxService:
             )
 
         return rows or None
-    
+
     def fetch_gasoline_price(self) -> Optional[float]:
         return self._fetch_generic_price("gasoline_api_url")
 
     def fetch_usd_vnd(self) -> Optional[float]:
         return self._fetch_generic_price("usd_vnd_api_url")
-    
+
     def fetch_vnd_rates(self) -> Dict[str, float]:
         url = self.config.get("exchangerate_api_url")
         if not url:
             return None
-        
+
         params = {
             "source": "VND",
             "currencies": "USD,JPY,KRW,CNY",
@@ -200,12 +197,12 @@ class GoldFxService:
                 result[code] = 1.0 / v
 
         return result
-    
+
     def round_sig(self, x, sig=3):
         if x == 0:
             return 0
         return round(x, sig - int(math.floor(math.log10(abs(x)))) - 1)
-    
+
     def pretty_number(self, x):
         # Format với delimiter nhưng không làm tròn lại
         if x >= 1000:
@@ -214,7 +211,7 @@ class GoldFxService:
             return f"{x:,.1f}"        # 100–999 → 1 số thập phân
         else:
             return f"{x:,.2f}"        # <100 → 2 số thập phân
-        
+
     def convert_timestamp_to_vn(self, t: int) -> str:
         # timestamp UTC -> datetime UTC
         dt_utc = datetime.fromtimestamp(t, tz=timezone.utc)
@@ -225,12 +222,12 @@ class GoldFxService:
         # format đẹp
         return dt_vn.strftime("%d/%m/%Y %H:%M:%S")
 
-
     def build_summary(self) -> str:
         if not self.config.get("enabled", True):
             return ""
 
-        lines = ["💰 *Giá vàng / xăng / tỷ giá*"]
+        # Dùng HTML: <b>, <i>, <code>...
+        lines = ["💰 <b>Giá vàng / xăng / tỷ giá</b>"]
 
         # ---------------------------
         # GOLD
@@ -241,20 +238,26 @@ class GoldFxService:
             gold_list = None
 
         if gold_list:
-            lines.append("*🏆 Giá vàng PNJ (Giá mua → Giá bán):*")
+            lines.append("🏆 <b>Giá vàng PNJ (Giá mua → Giá bán):</b>")
 
             # Lấy SJC nổi bật trước
             for name, buy, sell in gold_list:
                 if "SJC" in name:
-                    lines.append(f"- {name}: `{buy:,}` → `{sell:,}`")
+                    safe_name = html_escape(name)
+                    lines.append(
+                        f"- {safe_name}: <code>{buy:,}</code> → <code>{sell:,}</code>"
+                    )
                     break
 
             # Những vàng khác
             for name, buy, sell in gold_list:
                 if "SJC" not in name:
-                    lines.append(f"- {name}: `{buy:,}` → `{sell:,}`")
+                    safe_name = html_escape(name)
+                    lines.append(
+                        f"- {safe_name}: <code>{buy:,}</code> → <code>{sell:,}</code>"
+                    )
         else:
-            lines.append("- Vàng: _không lấy được dữ liệu_")
+            lines.append("- Vàng: <i>không lấy được dữ liệu</i>")
 
         # ---------------------------
         # GAS (PVOIL)
@@ -265,19 +268,19 @@ class GoldFxService:
             gases = None
 
         if gases:
-            lines.append("⛽ *Bảng giá xăng dầu PVOIL*")
+            lines.append("⛽ <b>Bảng giá xăng dầu PVOIL</b>")
             for r in gases:
-                delta = f"{r['delta']:+d}" if r.get('delta') is not None else "0"
+                delta = f"{r['delta']:+d}" if r.get("delta") is not None else "0"
+                safe_name = html_escape(r["name"])
                 lines.append(
-                    f"{r['stt']}. {r['name']}: `{r['price']:,} đ` (Δ `{delta}`)"
+                    f"{r['stt']}. {safe_name}: <code>{r['price']:,} đ</code> (Δ <code>{delta}</code>)"
                 )
         else:
-            lines.append("⛽ Bảng giá xăng dầu: _không lấy được dữ liệu_")
+            lines.append("⛽ Bảng giá xăng dầu: <i>không lấy được dữ liệu</i>")
 
         # ---------------------------
         # FX RATES
         # ---------------------------
-
         try:
             rates_vnd = self.fetch_vnd_rates()
         except Exception:
@@ -290,44 +293,48 @@ class GoldFxService:
             except Exception:
                 ts_vn = "N/A"
 
-            lines.append(f"*💰 Cập nhật tỷ giá VND: {ts_vn} (UTC+7)*")
+            lines.append(f"💰 <b>Cập nhật tỷ giá VND: {ts_vn} (UTC+7)</b>")
 
             # Helper nhỏ để tránh KeyError từng currency
-            def add_rate(key: str, label: str):
+            def add_rate(key: str, label: str, extra_note: str | None = None):
                 value = rates_vnd.get(key)
                 if value is None:
                     return
                 val = self.round_sig(value, 3)
-                lines.append(f"- 1 {label} = `{self.pretty_number(val)} VND`")
+                line = f"- 1 {html_escape(label)} = <code>{self.pretty_number(val)} VND</code>"
+                if extra_note:
+                    line += f"  <i>({html_escape(extra_note)})</i>"
+                lines.append(line)
 
             # 1 USD, 1 JPY, 1 MAN, 1 KRW, 1 CNY
             add_rate("VNDUSD", "USD")
+
             jpy_value = rates_vnd.get("VNDJPY")
             if jpy_value is not None:
                 jpy = self.round_sig(jpy_value, 3)
-                lines.append(
-                    f"- 1 JPY = `{self.pretty_number(jpy)} VND`  _(Yên Nhật)_"
-                )
+                add_rate("VNDJPY", "JPY", "Yên Nhật")
                 man = self.round_sig(jpy * 10000, 3)
                 lines.append(
-                    f"- 1 MAN = `{self.pretty_number(man)} VND`  _(Man Nhật – 10,000 Yên)_"
+                    f"- 1 MAN = <code>{self.pretty_number(man)} VND</code>  "
+                    f"<i>(Man Nhật – 10,000 Yên)</i>"
                 )
 
             krw_value = rates_vnd.get("VNDKRW")
             if krw_value is not None:
                 krw = self.round_sig(krw_value, 3)
                 lines.append(
-                    f"- 1 KRW = `{self.pretty_number(krw)} VND`  _(Won Hàn Quốc)_"
+                    f"- 1 KRW = <code>{self.pretty_number(krw)} VND</code>  "
+                    f"<i>(Won Hàn Quốc)</i>"
                 )
 
             cny_value = rates_vnd.get("VNDCNY")
             if cny_value is not None:
                 cny = self.round_sig(cny_value, 3)
                 lines.append(
-                    f"- 1 CNY = `{self.pretty_number(cny)} VND`  _(Nhân dân tệ Trung Quốc)_"
+                    f"- 1 CNY = <code>{self.pretty_number(cny)} VND</code>  "
+                    f"<i>(Nhân dân tệ Trung Quốc)</i>"
                 )
         else:
-            lines.append(f"*💰 Cập nhật tỷ giá VND: _không lấy được dữ liệu tỷ giá_")
+            lines.append("💰 <b>Cập nhật tỷ giá VND:</b> <i>không lấy được dữ liệu tỷ giá</i>")
 
         return "\n".join(lines)
-

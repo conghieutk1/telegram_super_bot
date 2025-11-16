@@ -2,6 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from util import http_get_json
+from html import escape as html_escape  # HTML escape cho text động
 
 
 class NewsService:
@@ -16,6 +17,7 @@ class NewsService:
 
         self.enabled = config.get("enabled", True)
         self.api_base = config.get("api_base", "https://newsapi.org/v2")
+        self.sources = config.get("sources", "bbc-news")
         self.country = config.get("country", "vn")
         self.category = config.get("category", "general")
         self.page_size = int(config.get("page_size", 5))
@@ -27,9 +29,10 @@ class NewsService:
     def fetch_latest(self) -> Optional[Dict[str, Any]]:
         url = f"{self.api_base}/top-headlines"
         params = {
-            "country": self.country,
-            "category": self.category,
-            "pageSize": self.page_size,
+            # "country": self.country,
+            # "category": self.category,
+            # "pageSize": self.page_size,
+            "sources": self.sources,
             "apiKey": self.api_key,
         }
         return http_get_json(url, params=params)
@@ -74,16 +77,16 @@ class NewsService:
 
         data = self.fetch_latest()
         if not data:
-            return "📰 *Tin tức*: không lấy được dữ liệu."
+            return "📰 <b>Tin tức</b>: không lấy được dữ liệu."
 
         status = data.get("status")
         if status != "ok":
             self.logger.warning("NewsAPI status not ok: %s", status)
-            return "📰 *Tin tức*: lỗi từ NewsAPI."
+            return "📰 <b>Tin tức</b>: lỗi từ NewsAPI."
 
         articles = data.get("articles", [])
         if not articles:
-            return "📰 *Tin tức*: hiện không có bài mới."
+            return "📰 <b>Tin tức</b>: hiện không có bài mới."
 
         last_published_at = state.get("news_last_published_at")
 
@@ -95,14 +98,24 @@ class NewsService:
             if new_last:
                 state["news_last_published_at"] = new_last
 
-        lines = ["📰 *Tin tức mới*"]
+        lines = ["📰 <b>Tin tức mới</b>"]
         for a in articles[: self.page_size]:
             title = a.get("title") or "(Không tiêu đề)"
             url = a.get("url") or ""
             source_name = (a.get("source") or {}).get("name") or ""
-            line = f"- [{title}]({url})" if url else f"- {title}"
-            if source_name:
-                line += f" _({source_name})_"
+
+            title_html = html_escape(title)
+            source_html = html_escape(source_name) if source_name else ""
+            url_html = html_escape(url)
+
+            if url_html:
+                line = f"- <a href=\"{url_html}\">{title_html}</a>"
+            else:
+                line = f"- {title_html}"
+
+            if source_html:
+                line += f" <i>({source_html})</i>"
+
             lines.append(line)
 
         return "\n".join(lines)

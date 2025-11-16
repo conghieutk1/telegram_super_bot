@@ -2,6 +2,7 @@ import logging
 from typing import Any, Dict, Optional, Tuple
 
 from util import http_get_json
+from html import escape as html_escape  # HTML escape cho text động
 
 
 class WeatherService:
@@ -81,7 +82,7 @@ class WeatherService:
 
         current = self.fetch_current()
         if not current:
-            return "☁️ *Thời tiết*: không lấy được dữ liệu."
+            return "☁️ <b>Thời tiết</b>: không lấy được dữ liệu."
 
         main = current.get("main", {})
         weather_arr = current.get("weather", [])
@@ -91,26 +92,33 @@ class WeatherService:
         humidity = main.get("humidity")
         wind = current.get("wind", {}).get("speed")
 
-        lines = [f"☁️ *Thời tiết - {self.location_name}*"]
+        location_html = html_escape(self.location_name)
+        desc_html = html_escape(desc)
+
+        lines = [f"☁️ <b>Thời tiết - {location_html}</b>"]
 
         if temp is not None and feels is not None:
-            lines.append(f"- Nhiệt độ: `{round(temp)}°C` (cảm giác: `{round(feels)}°C`)")
+            lines.append(
+                f"- Nhiệt độ: <code>{round(temp)}°C</code> "
+                f"(cảm giác: <code>{round(feels)}°C</code>)"
+            )
         elif temp is not None:
-            lines.append(f"- Nhiệt độ: `{round(temp)}°C`")
+            lines.append(f"- Nhiệt độ: <code>{round(temp)}°C</code>")
 
-        lines.append(f"- Trạng thái: `{desc}`")
+        lines.append(f"- Trạng thái: <code>{desc_html}</code>")
 
         if humidity is not None:
-            lines.append(f"- Độ ẩm: `{humidity}%`")
+            lines.append(f"- Độ ẩm: <code>{humidity}%</code>")
         if wind is not None:
-            lines.append(f"- Gió: `{wind} m/s`")
+            lines.append(f"- Gió: <code>{wind} m/s</code>")
 
         forecast = self.fetch_forecast()
         alert, max_rain = self._extract_rain_alert(forecast)
 
         if alert:
             lines.append(
-                f"⚠️ *Cảnh báo mưa*: dự kiến có mưa tới `{max_rain:.1f} mm` trong ~12 giờ tới."
+                "⚠️ <b>Cảnh báo mưa</b>: dự kiến có mưa tới "
+                f"<code>{max_rain:.1f} mm</code> trong ~12 giờ tới."
             )
         else:
             lines.append("✅ Không có cảnh báo mưa lớn trong ~12 giờ tới.")
